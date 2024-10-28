@@ -137,7 +137,7 @@ contract CoinFlip is Ownable, ReentrancyGuard {
         if (_coins > MAX_COIN_BETTABLE) {
             revert MaxBettableLimitExceed();
         }
-        if (_choice < 0 && _choice >= 2 ** _coins) {
+        if (_choice >= 2 ** _coins) {
             revert BetChoiceRangeExceed(_choice, 2 ** _coins);
         }
 
