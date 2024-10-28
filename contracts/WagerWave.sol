@@ -94,6 +94,13 @@ contract WagerWave is Ownable, ReentrancyGuard {
         return false;
     }
 
+    /// @notice Checks if a given game is supported.
+    /// @param _game The address of the token to check.
+    /// @return bool True if the game is supported, false otherwise.
+    function isGameSupported(address _game) external view returns (bool) {
+        return game[_game];
+    }
+
     /// @notice manages transferring tokens for bet.
     /// @param _player The address of the player.
     /// @param _amount The amount of tokens being wagered.
@@ -110,6 +117,28 @@ contract WagerWave is Ownable, ReentrancyGuard {
             require(_amount == msg.value);
         } else {
             IERC20(_token).transferFrom(_player, address(this), _amount);
+        }
+    }
+
+    /// @notice Settles a player's bet.
+    /// @dev Transfers winnings to the player if `_win` is `true`.
+    /// @param _player The address of the player whose bet is being settled.
+    /// @param _amount The amount the player initially bet.
+    /// @param _token The address of the token used for the bet. If zero address, native token is used.
+    /// @param _winnableAmount The amount the player can win.
+    /// @param _win Boolean indicating if the player won (`true`) or lost (`false`).
+    function settleBet(address _player, uint256 _amount, address _token, uint256 _winnableAmount, bool _win)
+        external
+        isWagerWaveLive
+        nonReentrant
+        onlyAuthorizedGame
+    {
+        if (_win) {
+            if (_token == address(0)) {
+                payable(_player).transfer(_winnableAmount);
+            } else {
+                IERC20(_token).transfer(_player, _winnableAmount);
+            }
         }
     }
 }
