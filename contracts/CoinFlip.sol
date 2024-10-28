@@ -18,6 +18,21 @@ contract CoinFlip is Ownable, ReentrancyGuard {
     error TokenNotSupported();
     error NotVRFManager();
 
+    event BetPlaced(
+        uint256 indexed betId, address indexed player, uint256 amount, uint256 coins, uint256 choice, address token
+    );
+
+    event BetSettled(
+        uint256 indexed betId,
+        address indexed player,
+        uint256 amount,
+        uint256 coins,
+        uint256 choice,
+        uint256 outcome,
+        uint256 winAmount,
+        address token
+    );
+
     IWagerWave wagerwave;
     IVRFManager vrfManager;
 
@@ -154,6 +169,8 @@ contract CoinFlip is Ownable, ReentrancyGuard {
         uint256 requestId = vrfManager.requestRandomNumber();
         betMap[requestId] = betId;
 
+        emit BetPlaced(betId, msg.sender, _amount, _coins, _choice, _betToken);
+
         bets.push(
             Bet({
                 coins: uint8(_coins),
@@ -205,6 +222,8 @@ contract CoinFlip is Ownable, ReentrancyGuard {
         bet.outcome = uint40(outcome);
 
         wagerwave.settleBet(player, amount, token, winnableAmount, winAmount > 0);
+        
+        emit BetSettled(betId, player, amount, coins, choice, outcome, winAmount, token);
     }
 
     /// @notice Calculates the potential win amount for a given bet.
