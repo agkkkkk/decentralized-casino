@@ -2,27 +2,39 @@
 pragma solidity 0.8.24;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-
-error UnAuthorizedGame();
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /// @title WagerWave Contract
-/// @author Anurag Chemban
+/// @author AGK
 /// @notice This contract is responsible for managing casino game contracts and supported tokens.
 /// @dev This contract serves as a registry for authorized casino game contracts and tokens, ensuring only approved contracts and tokens can be used in the ecosystem.
-contract WagerWave is Ownable {
+contract WagerWave is Ownable, ReentrancyGuard {
+    error UnAuthorizedGame();
+    error WagerWaveNotLive();
+
     bool public wagerWaveStatus = true;
 
     uint256 fee; // wagerwave contract fee
 
     mapping(address => bool) game;
 
-    address[] supportedToken;
+    address[] public supportedToken;
 
     /// checks whether the caller is an authorized game.
     /// @dev Reverts with `UnauthorizedGame` if the caller is not authorized.
     modifier onlyAuthorizedGame() {
-        if (game[msg.sender]) {
+        if (!game[msg.sender]) {
             revert UnAuthorizedGame();
+        }
+        _;
+    }
+
+    /// @notice Ensures the WagerWave platform is live before function execution.
+    /// @dev Reverts with `WagerWaveNotLive` if the platform is paused.
+    modifier isWagerWaveLive() {
+        if (!wagerWaveStatus) {
+            revert WagerWaveNotLive();
         }
         _;
     }
@@ -48,7 +60,7 @@ contract WagerWave is Ownable {
     /// @param _tokenAddress The address of the token to add to the supported list.
     function addSupportedToken(address _tokenAddress) external onlyOwner {
         for (uint256 i = 0; i < supportedToken.length; i++) {
-            if (_tokenAddress == supportedToken[0]) {
+            if (_tokenAddress == supportedToken[i]) {
                 return;
             }
         }
@@ -67,6 +79,37 @@ contract WagerWave is Ownable {
 
                 return;
             }
+        }
+    }
+
+    /// @notice Checks if a given token is supported in the casino.
+    /// @param _token The address of the token to check.
+    /// @return bool True if the token is supported, false otherwise.
+    function isTokenSupported(address _token) external view returns (bool) {
+        for (uint256 i = 0; i < supportedToken.length; i++) {
+            if (_token == supportedToken[i]) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /// @notice manages transferring tokens for bet.
+    /// @param _player The address of the player.
+    /// @param _amount The amount of tokens being wagered.
+    /// @param _token The address of the token being used for the bet.
+    /// @param _winnableAmount The maximum amount that the player can win.
+    function placeBet(address _player, uint256 _amount, address _token, uint256 _winnableAmount)
+        external
+        payable
+        isWagerWaveLive
+        nonReentrant
+        onlyAuthorizedGame
+    {
+        if (_token == address(0)) {
+            require(_amount == msg.value);
+        } else {
+            IERC20(_token).transferFrom(_player, address(this), _amount);
         }
     }
 }
